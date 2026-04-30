@@ -1,0 +1,28 @@
+[package]
+name = "hyprmousetrap"
+version = "1.0.0"
+authors = ["Nareg der Levonean"]
+edition = "2024"
+description = "Hot-corner and edge-action daemon for Hyprland"
+homepage = "https://github.com/naregderlevonean/hyprmousetrap"
+repository = "https://github.com/naregderlevonean/hyprmousetrap"
+license = "GPL-3.0-or-later"
+keywords = ["hyprland", "hot-corner", "daemon"]
+categories = ["command-line-utilities"]
+publish = false
+readme = "README.md"
+
+[dependencies]
+anyhow = "1.0"
+env_logger = "0.11"
+evdev = "0.12"
+hyprland = "0.4.0-beta.3"
+log = "0.4"
+mlua = { version = "0.9", features = ["lua54"] }
+notify = "6.1"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
