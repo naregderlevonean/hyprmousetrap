@@ -38,11 +38,8 @@ impl Action {
     pub fn execute(&self) -> Result<()> {
         match self.action.as_str() {
             "exec" => {
-                Command::new("sh")
-                    .arg("-c")
-                    .arg(&self.args)
-                    .spawn()
-                    .context("Failed to spawn exec command")?;
+                Dispatch::call(DispatchType::Exec(&self.args))
+                    .context("Failed to call Hyprland exec dispatcher")?;
             }
             "keyword" => {
                 if let Some((k, v)) = self.args.split_once(' ') {

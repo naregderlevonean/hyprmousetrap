@@ -141,10 +141,25 @@ fn run_check(
             ) {
                 for action in actions {
                     if action.delay_ms > 0 {
-                        thread::sleep(Duration::from_millis(action.delay_ms));
-                        let new_cursor = CursorPosition::get()?;
-                        let new_zone = detect_zone(&new_cursor, mon, c_size, thickness);
-                        if new_zone != current_zone { continue; }
+                        let step = 10;
+                        let mut waited = 0;
+                        let mut aborted = false;
+
+                        while waited < action.delay_ms {
+                            thread::sleep(Duration::from_millis(step));
+                            waited += step;
+
+                            if let Ok(new_cursor) = CursorPosition::get() {
+                                if detect_zone(&new_cursor, mon, c_size, thickness) != current_zone {
+                                    aborted = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if aborted { 
+                            continue; 
+                        }
                     }
                     let _ = action.execute();
                 }
