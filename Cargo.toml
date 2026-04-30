@@ -1,6 +1,6 @@
 [package]
 name = "hyprmousetrap"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Nareg der Levonean"]
 edition = "2024"
 description = "Hot-corner and edge-action daemon for Hyprland"
