@@ -4,7 +4,6 @@ use hyprland::keyword::Keyword;
 use mlua::{Function as LuaFunction, Lua, Table as LuaTable, Value as LuaValue};
 use std::fs::read_to_string;
 use std::path::Path;
-use std::process::Command;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Hotkeys {
@@ -18,11 +17,13 @@ impl Hotkeys {
     pub fn from_str(s: &str) -> Option<Self> {
         let s = s.trim().to_lowercase();
         if s.is_empty() { return None; }
+        
         let mut hk = Hotkeys::default();
         if s.contains("ctrl") { hk.ctrl = true; }
         if s.contains("alt") { hk.alt = true; }
         if s.contains("shift") { hk.shift = true; }
         if s.contains("super") { hk.super_key = true; }
+        
         if hk == Hotkeys::default() { None } else { Some(hk) }
     }
 }
@@ -43,18 +44,12 @@ impl Action {
                     .context("Failed to call Hyprland exec dispatcher")?;
             }
             "keyword" => {
-                if let Some((k, v)) = self.args.split_once(' ') {
-                    Keyword::set(k, v).context("Failed to set Hyprland keyword")?;
-                } else {
-                    Keyword::set(&self.args, "").context("Failed to set Hyprland keyword")?;
-                }
+                let (k, v) = self.args.split_once(' ').unwrap_or((&self.args, ""));
+                Keyword::set(k, v).context("Failed to set Hyprland keyword")?;
             }
             "dispatch" => {
-                if let Some((d, a)) = self.args.split_once(' ') {
-                    Dispatch::call(DispatchType::Custom(d, a)).context("Failed to call dispatcher")?;
-                } else {
-                    Dispatch::call(DispatchType::Custom(&self.args, "")).context("Failed to call dispatcher")?;
-                }
+                let (d, a) = self.args.split_once(' ').unwrap_or((&self.args, ""));
+                Dispatch::call(DispatchType::Custom(d, a)).context("Failed to call dispatcher")?;
             }
             _ => {
                 log::warn!("Unknown action type: {}", self.action);
@@ -120,7 +115,6 @@ impl LuaConfig {
         ctx.set("hotkeys", hk)?;
 
         let res: Option<LuaValue> = on_zone.call(ctx).context("Error executing on_zone")?;
-        
         Ok(self.parse_actions(res))
     }
 

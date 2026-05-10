@@ -1,6 +1,6 @@
-use anyhow::{Context, Result};
-use hyprland::data::{CursorPosition, Monitors};
-use hyprland::shared::HyprData; 
+use anyhow::Result;
+use hyprland::data::{CursorPosition, Monitor, Monitors};
+use hyprland::shared::{HyprData, HyprDataVec};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -13,6 +13,8 @@ use crate::input::MouseManager;
 pub struct TrapEngine {
     last_zone: Zone,
     mouse: MouseManager,
+    cached_monitors: Vec<Monitor>,
+    last_pos: (i64, i64),
 }
 
 impl TrapEngine {
@@ -20,6 +22,8 @@ impl TrapEngine {
         Self {
             last_zone: Zone::None,
             mouse,
+            cached_monitors: Vec::new(),
+            last_pos: (-1, -1),
         }
     }
 
@@ -32,20 +36,31 @@ impl TrapEngine {
         is_last_touch: &Arc<AtomicBool>,
         force: bool,
     ) -> Result<()> {
-        let cursor = CursorPosition::get().context("Failed to get cursor position")?;
-        let monitors = Monitors::get().context("Failed to get monitors info")?;
+        let cursor = match CursorPosition::get() {
+            Ok(c) => c,
+            Err(_) => return Ok(()),
+        };
 
-        let mon = match monitors.iter().find(|m| {
-            let (w, h) = get_logical_size(m);
-            cursor.x >= m.x as i64 && cursor.x < m.x as i64 + w && 
-            cursor.y >= m.y as i64 && cursor.y < m.y as i64 + h
-        }) {
+        if self.last_pos == (cursor.x, cursor.y) && !force {
+            return Ok(());
+        }
+        self.last_pos = (cursor.x, cursor.y);
+
+        let mut mon_opt = self.find_cached_monitor(&cursor);
+        if mon_opt.is_none() {
+            if let Ok(monitors) = Monitors::get() {
+                self.cached_monitors = monitors.to_vec();
+                mon_opt = self.find_cached_monitor(&cursor);
+            }
+        }
+
+        let mon = match mon_opt {
             Some(m) => m,
             None => return Ok(()),
         };
 
         let (c_size, thickness) = config.get_geometry(&mon.name);
-        let current_zone = detect_zone(&cursor, mon, c_size, thickness);
+        let current_zone = detect_zone(&cursor, &mon, c_size, thickness);
 
         if is_last_touch.load(Ordering::Relaxed) && !is_touch_down.load(Ordering::Relaxed) {
             self.last_zone = Zone::None;
@@ -69,7 +84,7 @@ impl TrapEngine {
                 &current_hk,
             ) {
                 for action in actions {
-                    if self.handle_dwell_and_pressure(&action, current_zone, mon, c_size, thickness) {
+                    if self.handle_dwell_and_pressure(&action, current_zone, &mon, c_size, thickness) {
                         let _ = action.execute();
                     }
                 }
@@ -80,7 +95,15 @@ impl TrapEngine {
         Ok(())
     }
 
-    fn handle_dwell_and_pressure(&self, action: &Action, zone: Zone, mon: &hyprland::data::Monitor, c_size: i64, thickness: i64) -> bool {
+    fn find_cached_monitor(&self, cursor: &CursorPosition) -> Option<Monitor> {
+        self.cached_monitors.iter().find(|m| {
+            let (w, h) = get_logical_size(m);
+            cursor.x >= m.x as i64 && cursor.x < m.x as i64 + w && 
+            cursor.y >= m.y as i64 && cursor.y < m.y as i64 + h
+        }).cloned()
+    }
+
+    fn handle_dwell_and_pressure(&self, action: &Action, zone: Zone, mon: &Monitor, c_size: i64, thickness: i64) -> bool {
         if action.delay_ms == 0 && action.pressure == 0 {
             return true;
         }

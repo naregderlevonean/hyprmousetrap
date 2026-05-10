@@ -5,41 +5,13 @@ mod engine;
 
 use anyhow::{Context, Result};
 use log::{error, info};
-use std::{env, path::PathBuf, thread, time::{Duration, SystemTime}};
-use std::sync::{Arc, Mutex, atomic::AtomicBool};
+use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use std::{env, path::PathBuf, thread, time::Duration};
+use std::sync::{mpsc, Arc, Mutex, atomic::AtomicBool};
 
 use crate::config::{Hotkeys, LuaConfig};
 use crate::input::MouseManager;
 use crate::engine::TrapEngine;
-
-struct ConfigCache {
-    path: PathBuf,
-    data: Option<LuaConfig>,
-    last_modified: SystemTime,
-}
-
-impl ConfigCache {
-    fn new(path: PathBuf) -> Self {
-        let last_modified = std::fs::metadata(&path).and_then(|m| m.modified()).unwrap_or(SystemTime::UNIX_EPOCH);
-        let data = LuaConfig::new(&path).ok();
-        Self { path, data, last_modified }
-    }
-
-    fn get_data(&mut self) -> Option<&LuaConfig> {
-        if let Ok(mtime) = std::fs::metadata(&self.path).and_then(|m| m.modified()) {
-            if mtime > self.last_modified {
-                info!("Config change detected, reloading...");
-                if let Ok(new_data) = LuaConfig::new(&self.path) {
-                    self.data = Some(new_data);
-                    self.last_modified = mtime;
-                } else {
-                    error!("Failed to reload config - check Lua syntax");
-                }
-            }
-        }
-        self.data.as_ref()
-    }
-}
 
 fn main() -> Result<()> {
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
@@ -52,7 +24,6 @@ fn main() -> Result<()> {
     let home = env::var("HOME").context("HOME not set")?;
     let config_path = PathBuf::from(home).join(".config/hypr/hyprmousetrap.lua");
 
-    let mut cache = ConfigCache::new(config_path);
     let mouse_manager = MouseManager::new();
     let mut engine = TrapEngine::new(mouse_manager);
 
@@ -60,10 +31,37 @@ fn main() -> Result<()> {
     let is_touch_down = Arc::new(AtomicBool::new(false));
     let is_last_touch = Arc::new(AtomicBool::new(false));
 
+    let mut current_config = LuaConfig::new(&config_path).ok();
+
     if is_daemon {
         info!("hyprmousetrap starting in daemon mode...");
+        
+        let (tx, rx) = mpsc::channel();
+        let mut watcher: RecommendedWatcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
+            if let Ok(event) = res {
+                if matches!(event.kind, EventKind::Modify(_)) {
+                    let _ = tx.send(());
+                }
+            }
+        }).context("Failed to setup config file watcher")?;
+        
+        watcher.watch(&config_path, RecursiveMode::NonRecursive).ok();
+
         loop {
-            if let Some(config) = cache.get_data() {
+            let mut reload_requested = false;
+            while rx.try_recv().is_ok() {
+                reload_requested = true;
+            }
+
+            if reload_requested {
+                info!("Config change detected, reloading...");
+                match LuaConfig::new(&config_path) {
+                    Ok(cfg) => current_config = Some(cfg),
+                    Err(_) => error!("Failed to reload config - check Lua syntax"),
+                }
+            }
+
+            if let Some(config) = &current_config {
                 let _ = engine.check_and_execute(
                     config, &current_trigger, &hotkeys_state, 
                     &is_touch_down, &is_last_touch, false
@@ -72,12 +70,13 @@ fn main() -> Result<()> {
             thread::sleep(Duration::from_millis(16));
         }
     } else {
-        if let Some(config) = cache.get_data() {
+        if let Some(config) = &current_config {
             engine.check_and_execute(
                 config, &current_trigger, &hotkeys_state, 
                 &is_touch_down, &is_last_touch, true
             )?;
         }
     }
+    
     Ok(())
 }
