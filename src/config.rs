@@ -30,6 +30,7 @@ impl Hotkeys {
 #[derive(Debug, Clone)]
 pub struct Action {
     pub delay_ms: u64,
+    pub pressure: i32, 
     pub action: String,
     pub args: String,
 }
@@ -129,6 +130,7 @@ impl LuaConfig {
             if t.contains_key("action").unwrap_or(false) {
                 actions.push(Action {
                     delay_ms: t.get("delay").unwrap_or(0),
+                    pressure: t.get("pressure").unwrap_or(0),
                     action: t.get("action").unwrap_or_default(),
                     args: t.get("args").unwrap_or_default(),
                 });
@@ -137,6 +139,7 @@ impl LuaConfig {
                     if let Ok((_, at)) = pair {
                         actions.push(Action {
                             delay_ms: at.get("delay").unwrap_or(0),
+                            pressure: at.get("pressure").unwrap_or(0),
                             action: at.get("action").unwrap_or_default(),
                             args: at.get("args").unwrap_or_default(),
                         });

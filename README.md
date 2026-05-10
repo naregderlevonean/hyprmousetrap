@@ -15,6 +15,7 @@ A high-performance, DPI-aware hot-corner and edge-action daemon for **Hyprland**
 
 - **Programmable Logic (Lua)**: Complete control via Lua scripting.
 - **8 Active Zones**: 4 corners and 4 edges (`top`, `bottom`, `left`, `right`, `top-left`, `top-right`, `bottom-left`, `bottom-right`).
+- **Pressure-Based Triggers**: Trigger actions by "pushing" the cursor against the screen edge.
 - **Modifier Key Integration**: Read `super`, `shift`, `ctrl`, and `alt` during interaction.
 - **DPI Aware**: Automatic logical coordinate scaling for HiDPI displays.
 - **Trigger-based Logic**: Distinguish between simple hovering, window dragging, or clicking.
@@ -93,6 +94,7 @@ Configuration is handled entirely through a Lua script. The daemon calls the `on
 
 To trigger an action, the Lua function must return a table containing:
 
+- **pressure**: Accumulative raw movement delta (pushing force) required.
 - **delay**: Number of milliseconds to wait (validating the cursor remains in the zone).
 - **action**: The Hyprland dispatch action (e.g., "exec", "workspace").
 - **args**: Arguments for the action.
@@ -135,6 +137,12 @@ function on_zone(ctx)
         return { delay = 2000, action = "exec", args = "hyprlock" }
     end
 
+    -- Bottom-right corner: Close window with pressure
+    -- No delay needed, just a firm "push" into the corner
+    if ctx.zone == "bottom-right" then
+        return { pressure = 500, action = "dispatch", args = "killactive" }
+    end
+
     -- Bottom edge logic: Launch terminal and notify
     if ctx.zone == "bottom" then
         if ctx.specialworkspace then
@@ -152,10 +160,8 @@ function on_zone(ctx)
         return { action = "dispatch", args = "workspace +1" }
     end
 
-    -- No action for other cases
     return {}
-end
-```
+end```
 
 
 

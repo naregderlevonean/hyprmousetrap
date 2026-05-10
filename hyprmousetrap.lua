@@ -28,6 +28,12 @@ function on_zone(ctx)
         return { delay = 2000, action = "exec", args = "hyprlock" }
     end
 
+    -- Bottom-right corner: Close window with pressure
+    -- No delay needed, just a firm "push" into the corner
+    if ctx.zone == "bottom-right" then
+        return { pressure = 500, action = "dispatch", args = "killactive" }
+    end
+
     -- Bottom edge logic: Launch terminal and notify
     if ctx.zone == "bottom" then
         if ctx.specialworkspace then
@@ -45,6 +51,5 @@ function on_zone(ctx)
         return { action = "dispatch", args = "workspace +1" }
     end
 
-    -- No action for other cases
     return {}
 end
