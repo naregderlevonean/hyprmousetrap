@@ -1,8 +1,15 @@
 ![Cheese](Cheese.png)
 
+
+
+
+
 # hyprmousetrap
 
 A high-performance, DPI-aware hot-corner and edge-action daemon for **Hyprland**, written in Rust. It utilizes a powerful and fully programmable **Lua API**, allowing you to conditionally trigger complex actions when your mouse enters screen corners or edges.
+
+
+
 
 ## Features
 
@@ -15,7 +22,12 @@ A high-performance, DPI-aware hot-corner and edge-action daemon for **Hyprland**
 * **Intent Verification**: Configurable delays with real-time cursor tracking to prevent accidental triggers.
 * **Context Aware**: Detects active special workspaces and specific monitors.
 
+
+
+
 ## Installation
+
+
 
 ### Easiest. Direct via Cargo
 
@@ -23,6 +35,8 @@ A high-performance, DPI-aware hot-corner and edge-action daemon for **Hyprland**
 cargo install --git https://github.com/naregderlevonean/hyprmousetrap
 
 ```
+
+
 
 ### Local. From Source
 
@@ -34,12 +48,17 @@ cargo install --path .
 
 ```
 
+
+
 ### Arch GNU/Linux. Using an AUR Helper
 
 ```bash
 yay -S hyprmousetrap-git
 
 ```
+
+
+
 
 ## Requirements
 
@@ -50,11 +69,16 @@ sudo usermod -aG input $USER
 
 ```
 
+
+
+
 ## Configuration
 
 **Path:** `~/.config/hypr/hyprmousetrap.lua`
 
 Configuration is handled entirely through a Lua script. The daemon calls the `on_zone(ctx)` function whenever a zone interaction is detected, providing a context object.
+
+
 
 ### The Context Object (`ctx`)
 
@@ -65,6 +89,8 @@ Configuration is handled entirely through a Lua script. The daemon calls the `on
 | `ctx.monitor` | `string` | System name (e.g., `eDP-1`). |
 | `ctx.specialworkspace` | `string|nil` | Name of active special workspace (if any). |
 | `ctx.hotkeys` | `table` | Boolean flags: `ctrl`, `alt`, `shift`, `super`. |
+
+
 
 ### Return Value
 
@@ -77,7 +103,74 @@ To trigger an action, the Lua function must return a table containing:
 
 Return `nil` or `{}` to do nothing.
 
+
+
+
+## Example Configuration
+
+```lua
+-- Screen zones and corner geometry settings
+geometry = {
+    default = { corner = 4, edge = 2 },
+    ["eDP-1"] = { corner = 60, edge = 10 } 
+}
+
+function on_zone(ctx)
+    -- Debug mode: Notify current zone when Shift is held
+    if ctx.hotkeys.shift then
+        return { action = "exec", args = "notify-send 'Mouse trapped in: " .. ctx.zone .. "'" }
+    end
+
+    -- Handle window dragging actions
+    if ctx.trigger == "drag" then
+        if ctx.zone == "top-left" or ctx.zone == "top-right" then
+            -- Expand window to fullscreen when dragged to top corners
+            return { action = "dispatch", args = "fullscreen 0" }
+        end
+    end
+
+    -- Top-left corner: Toggle overview/launcher
+    if ctx.zone == "top-left" then
+        return { action = "dispatch", args = "overview:toggle" }
+    end
+
+    -- Top-right corner: Lock screen with a 2-second dwell delay
+    if ctx.zone == "top-right" then
+        return { delay = 2000, action = "exec", args = "hyprlock" }
+    end
+
+    -- Bottom-right corner: Close window with pressure
+    -- No delay needed, just a firm "push" into the corner
+    if ctx.zone == "bottom-right" then
+        return { pressure = 500, action = "dispatch", args = "killactive" }
+    end
+
+    -- Bottom edge logic: Launch terminal and notify
+    if ctx.zone == "bottom" then
+        if ctx.specialworkspace then
+            return { delay = 0, action = "dispatch", args = "togglespecialworkspace" }
+        end
+        -- Multi-action
+        return {
+            { action = "exec", args = "foot" },
+            { action = "exec", args = "notify-send 'Terminal Spawned' 'Bottom edge trigger'" }
+        }
+    end
+
+    -- Right edge: Navigate workspaces on specific monitor using Super key
+    if ctx.zone == "right" and ctx.hotkeys.super and ctx.monitor == "DP-1" then
+        return { action = "dispatch", args = "workspace +1" }
+    end
+
+    return {}
+end```
+
+
+
+
 ## Usage
+
+
 
 ### Daemon Mode (Hover Triggers)
 
@@ -88,6 +181,8 @@ exec-once = hyprmousetrap
 
 ```
 
+
+
 ### Manual Triggers (Drag/Click)
 
 Integrate with Hyprland mouse bindings to enable "Drag to corner" actions.
@@ -96,6 +191,9 @@ Integrate with Hyprland mouse bindings to enable "Drag to corner" actions.
 bindn = , mouse:272, exec, hyprmousetrap drag
 
 ```
+
+
+
 
 ## License
 
