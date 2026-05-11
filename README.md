@@ -163,7 +163,8 @@ function on_zone(ctx)
     end
 
     return {}
-end```
+end
+```
 
 
 
@@ -178,7 +179,6 @@ Run the daemon in your `hyprland.conf`:
 
 ```hyprlang
 exec-once = hyprmousetrap
-
 ```
 
 
