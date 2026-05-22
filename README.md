@@ -8,6 +8,10 @@
 
 A high-performance, DPI-aware hot-corner and edge-action daemon for **Hyprland**, written in Rust. It utilizes a powerful and fully programmable **Lua API**, allowing you to conditionally trigger complex actions when your mouse enters screen corners or edges.
 
+> [!Important]
+> Is no longer maintained and is incompatible with Hyprland 0.55+. 
+> Switch to the new Hyprland 0.55 native Lua version here: [https://github.com/naregderlevonean/mousetrap](https://github.com/naregderlevonean/mousetrap)
+
 
 
 
